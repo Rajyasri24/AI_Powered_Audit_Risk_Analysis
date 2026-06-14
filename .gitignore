@@ -1,0 +1,32 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+
+# DVC
+.dvc/cache
+
+# MLflow
+mlruns/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+data/raw/*
+data/processed/*
+
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/sample/.gitkeep
