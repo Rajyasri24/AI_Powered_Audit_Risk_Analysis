@@ -1,29 +1,61 @@
+# =========================
 # Python
+# =========================
+
+backend/venv/
 venv/
+
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Node
+# =========================
+# Node / React
+# =========================
+
+frontend/node_modules/
 node_modules/
+
 dist/
 
-# Environment
+# =========================
+# Environment Variables
+# =========================
+
 .env
+backend/.env
+frontend/.env
 
+# =========================
 # DVC
-.dvc/cache
+# =========================
 
+.dvc/cache/
+
+# =========================
 # MLflow
+# =========================
+
 mlruns/
 
+# =========================
 # VS Code
+# =========================
+
 .vscode/
 
-# OS
+# =========================
+# Operating System
+# =========================
+
 .DS_Store
 Thumbs.db
 
+# =========================
 # Data
+# =========================
+
 data/raw/*
 data/processed/*
 
