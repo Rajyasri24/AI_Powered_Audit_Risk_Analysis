@@ -1,34 +1,31 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.client_routes import router as client_router
 from app.api.rule_routes import router as rule_router
 from app.api.client_rule_routes import router as client_rule_router
+
 app = FastAPI(
-    title="AI Audit Risk Analysis Platform",
-    version="1.0.0",
-    description="Enterprise Audit Risk Analytics Platform"
+    title="AI Audit Risk Analysis Platform"
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 app.include_router(client_router)
 app.include_router(rule_router)
 app.include_router(client_rule_router)
-@app.get("/")
-def health_check():
-    return {
-        "status": "running",
-        "project": "AI Audit Risk Analysis Platform",
-        "version": "1.0.0"
-    }
-
-
-@app.get("/health")
-def health():
-    return {
-        "healthy": True
-    }
 
 
 @app.get("/")
 def root():
-    return {
-        "message": "Backend Running"
-    }
+    return {"message": "Backend Running"}
