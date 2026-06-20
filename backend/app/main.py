@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.api.client_routes import router as client_router
 from app.api.rule_routes import router as rule_router
+from app.api.client_rule_routes import router as client_rule_router
 app = FastAPI(
     title="AI Audit Risk Analysis Platform",
     version="1.0.0",
@@ -9,6 +10,7 @@ app = FastAPI(
 
 app.include_router(client_router)
 app.include_router(rule_router)
+app.include_router(client_rule_router)
 @app.get("/")
 def health_check():
     return {
@@ -22,4 +24,11 @@ def health_check():
 def health():
     return {
         "healthy": True
+    }
+
+
+@app.get("/")
+def root():
+    return {
+        "message": "Backend Running"
     }

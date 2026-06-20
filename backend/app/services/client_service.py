@@ -1,12 +1,12 @@
+from typing import Any, cast
+
 from app.core.supabase_client import supabase
 
 
 class ClientService:
 
     @staticmethod
-    def create_client(data: dict):
-
-        # Create Client
+    def create_client(data: dict[str, Any]):
         client_response = (
             supabase
             .table("clients")
@@ -15,13 +15,10 @@ class ClientService:
         )
 
         if not client_response.data:
-            return {
-                "error": "Failed to create client"
-            }
+            return {"error": "Failed to create client"}
 
-        client = client_response.data[0]
+        client = cast(dict[str, Any], client_response.data[0])
 
-        # Fetch all system rules
         system_rules_response = (
             supabase
             .table("rules")
@@ -30,26 +27,23 @@ class ClientService:
             .execute()
         )
 
-        rules_data = system_rules_response.data or []
+        rules_data = cast(list[dict[str, Any]], system_rules_response.data or [])
 
-        client_rule_rows = []
+        client_rule_rows: list[dict[str, Any]] = []
 
         for rule in rules_data:
-
             client_rule_rows.append(
                 {
-                    "client_id": client["id"],
-                    "rule_id": rule["id"],
+                    "client_id": client.get("id"),
+                    "rule_id": rule.get("id"),
                     "custom_threshold": rule.get("default_threshold"),
-                    "custom_weight": rule.get("default_weight"),
-                    "custom_severity": rule.get("severity"),
-                    "is_enabled": True
+                    "likelihood": rule.get("likelihood"),
+                    "impact": rule.get("impact"),
+                    "enabled": True,
                 }
             )
 
-        # Auto-provision rules for client
         if client_rule_rows:
-
             (
                 supabase
                 .table("client_rules")
@@ -61,7 +55,6 @@ class ClientService:
 
     @staticmethod
     def get_all_clients():
-
         response = (
             supabase
             .table("clients")
@@ -74,7 +67,6 @@ class ClientService:
 
     @staticmethod
     def get_client(client_id: str):
-
         response = (
             supabase
             .table("clients")
@@ -87,7 +79,6 @@ class ClientService:
 
     @staticmethod
     def delete_client(client_id: str):
-
         response = (
             supabase
             .table("clients")
