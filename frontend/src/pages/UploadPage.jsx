@@ -135,7 +135,21 @@ export default function UploadPage() {
               uploadResult.validation.invalid_dates
             )}
           </ul>
+          
+          <h2>Schema Mapping</h2>
 
+            {uploadResult.mapping && Object.keys(uploadResult.mapping).length > 0 ? (
+              <ul>
+                {Object.entries(uploadResult.mapping).map(([standardField, sourceColumn]) => (
+                  <li key={standardField}>
+                    <strong>{standardField}</strong> ← {sourceColumn}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No automatic mapping detected.</p>
+            )}
+            
           <h2>Preview</h2>
 
           <table border="1" cellPadding="8">

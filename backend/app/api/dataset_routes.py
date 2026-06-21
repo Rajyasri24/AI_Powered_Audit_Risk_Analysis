@@ -12,6 +12,11 @@ router = APIRouter(
 )
 
 
+@router.get("/")
+def get_datasets():
+    return DatasetService.get_all_datasets()
+
+
 @router.post("/upload")
 def upload_dataset(
     client_id: str = Form(...),

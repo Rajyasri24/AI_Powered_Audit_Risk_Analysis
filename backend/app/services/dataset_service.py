@@ -7,6 +7,7 @@ import pandas as pd
 
 from app.core.supabase_client import supabase
 from app.services.validation_service import ValidationService
+from app.services.schema_mapping_service import SchemaMappingService
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -21,16 +22,10 @@ def clean_for_json(value: Any):
         return value
 
     if isinstance(value, dict):
-        return {
-            key: clean_for_json(val)
-            for key, val in value.items()
-        }
+        return {key: clean_for_json(val) for key, val in value.items()}
 
     if isinstance(value, list):
-        return [
-            clean_for_json(item)
-            for item in value
-        ]
+        return [clean_for_json(item) for item in value]
 
     return value
 
@@ -45,7 +40,6 @@ class DatasetService:
             raise ValueError("No file selected")
 
         extension = filename.split(".")[-1].lower()
-
         allowed_types = ["csv", "xlsx", "json"]
 
         if extension not in allowed_types:
@@ -86,6 +80,10 @@ class DatasetService:
 
         validation = ValidationService.validate_dataframe(dataframe)
 
+        mapping = SchemaMappingService.generate_mapping(
+            dataframe.columns.tolist()
+        )
+
         dataset_payload = {
             "client_id": client_id,
             "dataset_name": filename,
@@ -119,7 +117,20 @@ class DatasetService:
         result = {
             "dataset": dataset,
             "preview": preview,
-            "validation": validation
+            "validation": validation,
+            "mapping": mapping
         }
 
         return clean_for_json(result)
+
+    @staticmethod
+    def get_all_datasets():
+        response = (
+            supabase
+            .table("datasets")
+            .select("*, clients(*)")
+            .order("upload_date", desc=True)
+            .execute()
+        )
+
+        return response.data
