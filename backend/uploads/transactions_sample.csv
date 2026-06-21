@@ -1,0 +1,6 @@
+﻿"transaction_id,vendor,amount"
+"T001,ABC Traders,10000"
+"T002,XYZ Suppliers,25000"
+"T003,ABC Traders,500000"
+"T004,Vendor One,1200000"
+"T005,Vendor Two,30000"

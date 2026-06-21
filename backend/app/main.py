@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+
+from app.api.dataset_routes import router as dataset_router
 from app.api.client_routes import router as client_router
 from app.api.rule_routes import router as rule_router
 from app.api.client_rule_routes import router as client_rule_router
@@ -20,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+app.include_router(dataset_router)
 app.include_router(client_router)
 app.include_router(rule_router)
 app.include_router(client_rule_router)
