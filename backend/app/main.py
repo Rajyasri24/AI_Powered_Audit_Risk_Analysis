@@ -8,6 +8,7 @@ from app.api.rule_routes import router as rule_router
 from app.api.client_rule_routes import router as client_rule_router
 from app.api.analysis_routes import router as analysis_router
 from app.api.finding_routes import router as finding_router
+from app.api.dashboard_routes import router as dashboard_router
 
 app = FastAPI(
     title="AI Audit Risk Analysis Platform"
@@ -30,6 +31,7 @@ app.include_router(rule_router)
 app.include_router(client_rule_router)
 app.include_router(analysis_router)
 app.include_router(finding_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/")

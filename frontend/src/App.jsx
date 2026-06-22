@@ -20,7 +20,6 @@ import SettingsPage from "./pages/SettingsPage";
 export default function App() {
   return (
     <Routes>
-
       <Route path="/" element={<LoginPage />} />
 
       <Route
@@ -43,7 +42,6 @@ export default function App() {
         <Route path="/copilot" element={<CopilotPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
-
     </Routes>
   );
 }
