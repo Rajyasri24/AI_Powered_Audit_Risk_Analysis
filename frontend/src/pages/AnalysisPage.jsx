@@ -26,10 +26,8 @@ export default function AnalysisPage() {
 
     try {
       setLoading(true);
-
       const result = await runAnalysis(selectedDataset);
       setAnalysisResult(result);
-
       alert("Analysis completed");
     } catch (error) {
       console.error(error);
@@ -37,46 +35,6 @@ export default function AnalysisPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getRiskBadgeStyle = (riskLevel) => {
-    if (riskLevel === "Critical") {
-      return {
-        background: "#FEE2E2",
-        color: "#B91C1C",
-        padding: "4px 10px",
-        borderRadius: "999px",
-        fontWeight: "600",
-      };
-    }
-
-    if (riskLevel === "High") {
-      return {
-        background: "#FED7AA",
-        color: "#C2410C",
-        padding: "4px 10px",
-        borderRadius: "999px",
-        fontWeight: "600",
-      };
-    }
-
-    if (riskLevel === "Medium") {
-      return {
-        background: "#FEF3C7",
-        color: "#B45309",
-        padding: "4px 10px",
-        borderRadius: "999px",
-        fontWeight: "600",
-      };
-    }
-
-    return {
-      background: "#DCFCE7",
-      color: "#15803D",
-      padding: "4px 10px",
-      borderRadius: "999px",
-      fontWeight: "600",
-    };
   };
 
   return (
@@ -112,30 +70,11 @@ export default function AnalysisPage() {
           <h2>Analysis Summary</h2>
 
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            <div style={cardStyle}>
-              <p>Total Transactions</p>
-              <h2>{analysisResult.total_transactions}</h2>
-            </div>
-
-            <div style={cardStyle}>
-              <p>Total Findings</p>
-              <h2>{analysisResult.findings_count}</h2>
-            </div>
-
-            <div style={cardStyle}>
-              <p>Low Risk</p>
-              <h2>{analysisResult.low_risk_count}</h2>
-            </div>
-
-            <div style={cardStyle}>
-              <p>Medium Risk</p>
-              <h2>{analysisResult.medium_risk_count}</h2>
-            </div>
-
-            <div style={cardStyle}>
-              <p>High / Critical Risk</p>
-              <h2>{analysisResult.high_risk_count}</h2>
-            </div>
+            <Card title="Total Transactions" value={analysisResult.total_transactions} />
+            <Card title="Rule Findings" value={analysisResult.rule_findings_count} />
+            <Card title="ML Findings" value={analysisResult.ml_findings_count} />
+            <Card title="Final Findings" value={analysisResult.findings_count} />
+            <Card title="High / Critical" value={analysisResult.high_risk_count} />
           </div>
 
           <h2 style={{ marginTop: "24px" }}>Findings Preview</h2>
@@ -147,10 +86,14 @@ export default function AnalysisPage() {
               <thead>
                 <tr>
                   <th>Transaction ID</th>
-                  <th>Triggered Rule</th>
-                  <th>Risk Score</th>
+                  <th>Rule Score</th>
+                  <th>ML Score</th>
+                  <th>Network Score</th>
+                  <th>Final Score</th>
                   <th>Risk Level</th>
-                  <th>Reason</th>
+                  <th>Sources</th>
+                  <th>Triggered Rules</th>
+                  <th>Anomaly Reasons</th>
                 </tr>
               </thead>
 
@@ -158,14 +101,28 @@ export default function AnalysisPage() {
                 {analysisResult.findings_preview.map((finding, index) => (
                   <tr key={index}>
                     <td>{finding.transaction_id}</td>
-                    <td>{finding.triggered_rules?.join(", ")}</td>
+                    <td>{finding.rule_score}</td>
+                    <td>{finding.anomaly_score}</td>
+                    <td>{finding.network_score}</td>
                     <td>{finding.risk_score}</td>
                     <td>
                       <span style={getRiskBadgeStyle(finding.risk_level)}>
                         {finding.risk_level}
                       </span>
                     </td>
-                    <td>{finding.reasons}</td>
+                    <td>{finding.detection_sources?.join(", ")}</td>
+                    <td>{finding.triggered_rules?.join(", ") || "-"}</td>
+                    <td>
+                      {finding.anomaly_reasons?.length > 0 ? (
+                        <ul>
+                          {finding.anomaly_reasons.map((reason, i) => (
+                            <li key={i}>{reason}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -175,6 +132,41 @@ export default function AnalysisPage() {
       )}
     </div>
   );
+}
+
+function Card({ title, value }) {
+  return (
+    <div style={cardStyle}>
+      <p>{title}</p>
+      <h2>{value ?? 0}</h2>
+    </div>
+  );
+}
+
+function getRiskBadgeStyle(riskLevel) {
+  if (riskLevel === "Critical") {
+    return badge("#FEE2E2", "#B91C1C");
+  }
+
+  if (riskLevel === "High") {
+    return badge("#FED7AA", "#C2410C");
+  }
+
+  if (riskLevel === "Medium") {
+    return badge("#FEF3C7", "#B45309");
+  }
+
+  return badge("#DCFCE7", "#15803D");
+}
+
+function badge(background, color) {
+  return {
+    background,
+    color,
+    padding: "4px 10px",
+    borderRadius: "999px",
+    fontWeight: "600",
+  };
 }
 
 const cardStyle = {
