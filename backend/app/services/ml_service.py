@@ -40,6 +40,8 @@ class MLService:
             col for col in dataframe.columns
             if "vendor" in col.lower()
             or "supplier" in col.lower()
+            or "nameOrig" in col
+            or "nameDest" in col
         ]
 
         if amount_columns:
@@ -51,11 +53,15 @@ class MLService:
                 errors="coerce"
             ).median()
 
-            if pd.notna(amount) and pd.notna(dataset_median) and dataset_median > 0:
-                if amount > dataset_median * 3:
-                    reasons.append(
-                        f"Amount is significantly higher than dataset median ({round(float(dataset_median), 2)})."
-                    )
+            if (
+                pd.notna(amount)
+                and pd.notna(dataset_median)
+                and dataset_median > 0
+                and amount > dataset_median * 3
+            ):
+                reasons.append(
+                    f"Amount is significantly higher than dataset median ({round(float(dataset_median), 2)})."
+                )
 
         if vendor_columns:
             vendor_col = vendor_columns[0]
@@ -65,13 +71,23 @@ class MLService:
                 vendor_count = int((dataframe[vendor_col] == vendor).sum())
 
                 if vendor_count == 1:
-                    reasons.append("Vendor appears only once in the dataset.")
+                    reasons.append("Entity appears only once in the dataset.")
 
         return reasons
 
     @staticmethod
     def detect_anomalies(dataframe: pd.DataFrame):
         numeric_dataframe = dataframe.select_dtypes(include=["number"]).copy()
+
+        columns_to_exclude = [
+            col for col in numeric_dataframe.columns
+            if col.lower() in ["isfraud", "isflaggedfraud"]
+        ]
+
+        numeric_dataframe = numeric_dataframe.drop(
+            columns=columns_to_exclude,
+            errors="ignore"
+        )
 
         if numeric_dataframe.empty or len(numeric_dataframe) < 5:
             return []
@@ -99,11 +115,11 @@ class MLService:
 
         anomalies = []
 
-        for index, row_series in dataframe.iterrows():
+        for position, (_, row_series) in enumerate(dataframe.iterrows()):
             row = dict(row_series)
 
-            if_flagged = if_predictions[index] == -1
-            lof_flagged = lof_predictions[index] == -1
+            if_flagged = if_predictions[position] == -1
+            lof_flagged = lof_predictions[position] == -1
 
             if not if_flagged and not lof_flagged:
                 continue
@@ -130,7 +146,7 @@ class MLService:
             transaction_id = (
                 str(row.get(transaction_col))
                 if transaction_col
-                else str(index)
+                else str(position)
             )
 
             anomalies.append(

@@ -1,7 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.services.finding_service import FindingService
-
 
 router = APIRouter(
     prefix="/findings",
@@ -10,10 +9,18 @@ router = APIRouter(
 
 
 @router.get("/")
-def get_all_findings():
+def get_findings():
     return FindingService.get_all_findings()
 
 
-@router.get("/{analysis_id}")
-def get_findings_by_analysis(analysis_id: str):
-    return FindingService.get_findings_by_analysis(analysis_id)
+@router.get("/{finding_id}")
+def get_finding(finding_id: str):
+    finding = FindingService.get_finding(finding_id)
+
+    if not finding:
+        raise HTTPException(
+            status_code=404,
+            detail="Finding not found"
+        )
+
+    return finding

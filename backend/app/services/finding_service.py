@@ -8,22 +8,21 @@ class FindingService:
         response = (
             supabase
             .table("findings")
-            .select("*, analyses(*)")
+            .select("*")
             .order("created_at", desc=True)
             .execute()
         )
 
-        return response.data
+        return response.data or []
 
     @staticmethod
-    def get_findings_by_analysis(analysis_id: str):
+    def get_finding(finding_id: str):
         response = (
             supabase
             .table("findings")
             .select("*")
-            .eq("analysis_id", analysis_id)
-            .order("risk_score", desc=True)
+            .eq("id", finding_id)
             .execute()
         )
 
-        return response.data
+        return response.data[0] if response.data else None

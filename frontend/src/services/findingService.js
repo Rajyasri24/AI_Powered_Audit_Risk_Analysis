@@ -5,7 +5,7 @@ export const getAllFindings = async () => {
   return response.data;
 };
 
-export const getFindingsByAnalysis = async (analysisId) => {
-  const response = await api.get(`/findings/${analysisId}`);
+export const getFindingById = async (findingId) => {
+  const response = await api.get(`/findings/${findingId}`);
   return response.data;
 };

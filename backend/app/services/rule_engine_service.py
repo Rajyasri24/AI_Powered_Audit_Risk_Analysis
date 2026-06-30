@@ -1,5 +1,4 @@
 from typing import Any
-
 import pandas as pd
 
 
@@ -8,20 +7,18 @@ class RuleEngineService:
     @staticmethod
     def get_column(df: pd.DataFrame, possible_names: list[str]):
         lower_map = {col.lower(): col for col in df.columns}
-
         for name in possible_names:
             if name.lower() in lower_map:
                 return lower_map[name.lower()]
-
         return None
 
     @staticmethod
     def risk_level(score: int):
-        if score <= 5:
+        if score <= 20:
             return "Low"
-        if score <= 10:
+        if score <= 50:
             return "Medium"
-        if score <= 15:
+        if score <= 75:
             return "High"
         return "Critical"
 
@@ -35,21 +32,41 @@ class RuleEngineService:
             return None
 
     @staticmethod
+    def is_empty(value: Any):
+        return value is None or pd.isna(value) or str(value).strip() == ""
+
+    @staticmethod
+    def get_row_value_case_insensitive(row: dict[str, Any], field: str):
+        lower_map = {str(key).lower(): key for key in row.keys()}
+        actual_key = lower_map.get(field.lower())
+
+        if actual_key is None:
+            return False, None
+
+        return True, row.get(actual_key)
+
+    @staticmethod
     def evaluate_condition(row: dict[str, Any], condition: dict[str, Any]):
-        field = condition.get("field")
-        operator = condition.get("operator")
+        field = str(condition.get("field") or "").strip()
+        operator = str(condition.get("operator") or "").strip()
         value = condition.get("value")
 
-        if not field:
+        if not field or not operator:
             return False
 
-        actual = row.get(str(field))
+        field_exists, actual = RuleEngineService.get_row_value_case_insensitive(
+            row,
+            field
+        )
+
+        if not field_exists:
+            return False
 
         if operator == "is_null":
-            return pd.isna(actual) or actual == ""
+            return RuleEngineService.is_empty(actual)
 
         if operator == "not_null":
-            return not pd.isna(actual) and actual != ""
+            return not RuleEngineService.is_empty(actual)
 
         if operator in [">", "<", ">=", "<="]:
             actual_num = RuleEngineService.safe_float(actual)
@@ -68,12 +85,42 @@ class RuleEngineService:
                 return actual_num <= value_num
 
         if operator == "=":
-            return str(actual) == str(value)
+            return str(actual).strip().lower() == str(value).strip().lower()
 
         if operator == "!=":
-            return str(actual) != str(value)
+            return str(actual).strip().lower() != str(value).strip().lower()
 
         return False
+
+    @staticmethod
+    def evaluate_json_rule(row: dict[str, Any], rule_definition: Any):
+        if not isinstance(rule_definition, dict):
+            return False
+
+        logic = str(rule_definition.get("logic") or "AND").upper()
+        conditions = rule_definition.get("conditions", [])
+
+        if logic not in ["AND", "OR"]:
+            logic = "AND"
+
+        if not isinstance(conditions, list) or len(conditions) == 0:
+            return False
+
+        results = []
+
+        for condition in conditions:
+            if isinstance(condition, dict):
+                results.append(
+                    RuleEngineService.evaluate_condition(row, condition)
+                )
+
+        if not results:
+            return False
+
+        if logic == "OR":
+            return any(results)
+
+        return all(results)
 
     @staticmethod
     def apply_rules(
@@ -84,7 +131,13 @@ class RuleEngineService:
 
         amount_col = RuleEngineService.get_column(
             dataframe,
-            ["amount", "txn_amt", "invoice_value", "payment_amount"]
+            [
+                "amount",
+                "txn_amt",
+                "invoice_value",
+                "payment_amount",
+                "transaction_amount",
+            ]
         )
 
         gst_col = RuleEngineService.get_column(
@@ -97,21 +150,32 @@ class RuleEngineService:
             ["transaction_id", "txn_id", "invoice_id", "id"]
         )
 
-        for index, row_series in dataframe.iterrows():
+        for row_index, row_series in dataframe.iterrows():
             row = dict(row_series)
 
             for client_rule in client_rules:
+                if client_rule.get("enabled") is False:
+                    continue
+
                 rule = client_rule.get("rules") or {}
 
-                rule_name = str(rule.get("rule_name", ""))
+                rule_name = str(rule.get("rule_name") or "").strip()
                 rule_definition = rule.get("rule_definition")
-
                 threshold = client_rule.get("custom_threshold")
-                likelihood = int(client_rule.get("likelihood") or 1)
-                impact = int(client_rule.get("impact") or 1)
+
+                likelihood = int(
+                    client_rule.get("likelihood")
+                    or rule.get("likelihood")
+                    or 1
+                )
+
+                impact = int(
+                    client_rule.get("impact")
+                    or rule.get("impact")
+                    or 1
+                )
 
                 score = likelihood * impact
-
                 triggered = False
                 reason = ""
 
@@ -136,9 +200,7 @@ class RuleEngineService:
 
                 elif rule_name == "Round Number Transaction" and amount_col:
                     amount = RuleEngineService.safe_float(row.get(amount_col))
-                    threshold_num = (
-                        RuleEngineService.safe_float(threshold) or 50000
-                    )
+                    threshold_num = RuleEngineService.safe_float(threshold) or 50000
 
                     if (
                         amount is not None
@@ -151,31 +213,25 @@ class RuleEngineService:
                 elif rule_name == "Missing GST" and gst_col:
                     gst_value = row.get(gst_col)
 
-                    if pd.isna(gst_value) or gst_value == "":
+                    if RuleEngineService.is_empty(gst_value):
                         triggered = True
                         reason = "GST value is missing"
 
                 elif isinstance(rule_definition, dict):
-                    conditions = rule_definition.get("conditions", [])
+                    triggered = RuleEngineService.evaluate_json_rule(
+                        row,
+                        rule_definition
+                    )
 
-                    if isinstance(conditions, list):
-                        triggered = all(
-                            RuleEngineService.evaluate_condition(
-                                row,
-                                condition
-                            )
-                            for condition in conditions
-                            if isinstance(condition, dict)
-                        )
-
-                        if triggered:
-                            reason = "Custom JSON rule condition matched"
+                    if triggered:
+                        logic = str(rule_definition.get("logic") or "AND").upper()
+                        reason = f"Custom JSON rule condition matched using {logic} logic"
 
                 if triggered:
                     transaction_id = (
                         str(row.get(transaction_col))
                         if transaction_col
-                        else str(index)
+                        else str(row_index)
                     )
 
                     findings.append(
