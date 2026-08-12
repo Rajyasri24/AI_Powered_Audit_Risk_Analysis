@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -21,18 +23,48 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+
+def get_allowed_origins() -> list[str]:
+    origins = [
         "http://localhost:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
-    ],
+    ]
+
+    frontend_url = os.getenv(
+        "FRONTEND_URL",
+        "",
+    ).strip()
+
+    if frontend_url:
+        for origin in frontend_url.split(","):
+            cleaned_origin = (
+                origin
+                .strip()
+                .rstrip("/")
+            )
+
+            if (
+                cleaned_origin
+                and cleaned_origin
+                not in origins
+            ):
+                origins.append(
+                    cleaned_origin
+                )
+
+    return origins
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 PUBLIC_PATHS = {
     "/",
@@ -44,7 +76,10 @@ PUBLIC_PATHS = {
 
 
 @app.middleware("http")
-async def rbac_middleware(request: Request, call_next):
+async def rbac_middleware(
+    request: Request,
+    call_next,
+):
     path = request.url.path
 
     if (
@@ -53,14 +88,25 @@ async def rbac_middleware(request: Request, call_next):
         or path.startswith("/docs/")
         or path.startswith("/redoc/")
     ):
-        return await call_next(request)
+        return await call_next(
+            request
+        )
 
     try:
-        user = await run_in_threadpool(enforce_rbac, request)
+        user = await run_in_threadpool(
+            enforce_rbac,
+            request,
+        )
+
         request.state.user = user
+
     except Exception as exc:
         return JSONResponse(
-            status_code=getattr(exc, "status_code", 500),
+            status_code=getattr(
+                exc,
+                "status_code",
+                500,
+            ),
             content={
                 "detail": getattr(
                     exc,
@@ -70,7 +116,9 @@ async def rbac_middleware(request: Request, call_next):
             },
         )
 
-    return await call_next(request)
+    return await call_next(
+        request
+    )
 
 
 app.include_router(client_router)
@@ -88,7 +136,10 @@ app.include_router(copilot_router)
 @app.get("/")
 def root():
     return {
-        "message": "AI Audit Risk Analysis Platform Backend Running",
+        "message": (
+            "AI Audit Risk Analysis Platform "
+            "Backend Running"
+        ),
         "network_analytics": "enabled",
         "reports": "enabled",
         "rbac": "enabled",
@@ -98,4 +149,6 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy"
+    }
