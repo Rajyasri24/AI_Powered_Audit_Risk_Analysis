@@ -1,178 +1,718 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import { getDatasets } from "../services/datasetService";
-import { runAnalysis } from "../services/analysisService";
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
+import {
+  getDatasets,
+} from "../services/datasetService";
+
+import {
+  getAnalyses,
+  runAnalysis,
+} from "../services/analysisService";
+
 
 export default function AnalysisPage() {
-  const [datasets, setDatasets] = useState([]);
-  const [selectedDataset, setSelectedDataset] = useState("");
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const [searchParams] =
+    useSearchParams();
+
+  const [datasets, setDatasets] =
+    useState([]);
+
+  const [
+    currentAssessments,
+    setCurrentAssessments,
+  ] = useState([]);
+
+  const [
+    selectedDataset,
+    setSelectedDataset,
+  ] = useState("");
+
+  const [
+    assessmentResult,
+    setAssessmentResult,
+  ] = useState(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [
+    pageLoading,
+    setPageLoading,
+  ] = useState(false);
+
+  const clientIdFromUrl =
+    searchParams.get(
+      "clientId"
+    ) || "";
 
   useEffect(() => {
-    loadDatasets();
-  }, []);
+    const datasetIdFromUrl =
+      searchParams.get(
+        "datasetId"
+      );
 
-  const loadDatasets = async () => {
-    const data = await getDatasets();
-    setDatasets(data);
-  };
+    if (
+      datasetIdFromUrl
+    ) {
+      setSelectedDataset(
+        datasetIdFromUrl
+      );
+    }
 
-  const handleRunAnalysis = async () => {
-    if (!selectedDataset) {
-      alert("Please select a dataset");
+    loadPageData();
+  }, [searchParams]);
+
+  const loadPageData =
+    async () => {
+      try {
+        setPageLoading(true);
+
+        const [
+          datasetData,
+          assessmentData,
+        ] =
+          await Promise.all([
+            getDatasets(),
+            getAnalyses(),
+          ]);
+
+        setDatasets(
+          Array.isArray(
+            datasetData
+          )
+            ? datasetData
+            : []
+        );
+
+        setCurrentAssessments(
+          Array.isArray(
+            assessmentData
+          )
+            ? assessmentData
+            : []
+        );
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          error?.response?.data
+            ?.detail ||
+            "Failed to load assessment data."
+        );
+      } finally {
+        setPageLoading(
+          false
+        );
+      }
+    };
+
+  const availableDatasets =
+    useMemo(() => {
+      if (
+        !clientIdFromUrl
+      ) {
+        return datasets;
+      }
+
+      return datasets.filter(
+        (dataset) =>
+          String(
+            dataset.client_id
+          ) === String(
+            clientIdFromUrl
+          )
+      );
+    }, [
+      datasets,
+      clientIdFromUrl,
+    ]);
+
+  const selectedDatasetDetails =
+    useMemo(() => {
+      return datasets.find(
+        (dataset) =>
+          String(
+            dataset.id
+          ) === String(
+            selectedDataset
+          )
+      );
+    }, [
+      datasets,
+      selectedDataset,
+    ]);
+
+  const currentAssessment =
+    useMemo(() => {
+      return currentAssessments.find(
+        (item) =>
+          String(
+            item.dataset_id
+          ) === String(
+            selectedDataset
+          )
+      );
+    }, [
+      currentAssessments,
+      selectedDataset,
+    ]);
+
+  const goToFindings = (
+    analysisId = ""
+  ) => {
+    const clientId =
+      selectedDatasetDetails
+        ?.client_id ||
+      assessmentResult
+        ?.client_id ||
+      "";
+
+    const datasetId =
+      selectedDataset ||
+      assessmentResult
+        ?.dataset_id ||
+      "";
+
+    const currentAnalysisId =
+      analysisId ||
+      assessmentResult
+        ?.analysis_id ||
+      currentAssessment?.id ||
+      "";
+
+    if (
+      clientId &&
+      datasetId &&
+      currentAnalysisId
+    ) {
+      navigate(
+        `/investigation?clientId=${clientId}` +
+          `&datasetId=${datasetId}` +
+          `&analysisId=${currentAnalysisId}`
+      );
+
       return;
     }
 
-    try {
-      setLoading(true);
-      const result = await runAnalysis(selectedDataset);
-      setAnalysisResult(result);
-      alert("Analysis completed");
-    } catch (error) {
-      console.error(error);
-      alert("Analysis failed");
-    } finally {
-      setLoading(false);
+    if (
+      clientId &&
+      datasetId
+    ) {
+      navigate(
+        `/investigation?clientId=${clientId}` +
+          `&datasetId=${datasetId}`
+      );
+
+      return;
     }
+
+    navigate(
+      "/investigation"
+    );
   };
+
+  const handleAssessment =
+    async () => {
+      if (
+        !selectedDataset
+      ) {
+        alert(
+          "Please select a dataset."
+        );
+
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setAssessmentResult(
+          null
+        );
+
+        const result =
+          await runAnalysis(
+            selectedDataset
+          );
+
+        if (
+          !result ||
+          result.error
+        ) {
+          throw new Error(
+            result?.error ||
+              "Assessment did not return a valid result."
+          );
+        }
+
+        if (
+          !result.analysis_id
+        ) {
+          throw new Error(
+            "Assessment record was not created."
+          );
+        }
+
+        setAssessmentResult(
+          result
+        );
+
+        await loadPageData();
+
+        alert(
+          `Assessment completed successfully.\n` +
+            `Transactions reviewed: ${result.total_transactions ?? 0}\n` +
+            `Findings requiring review: ${result.findings_count ?? 0}`
+        );
+      } catch (error) {
+        console.error(
+          "Assessment error:",
+          error
+        );
+
+        alert(
+          error?.response?.data
+            ?.detail ||
+            error?.message ||
+            "Assessment failed."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
     <div>
-      <h1>Run Audit Analysis</h1>
+      <h1 className="page-title">
+        Dataset Assessment
+      </h1>
 
-      <div style={{ marginBottom: "20px" }}>
-        <label>Select Dataset</label>
-        <br />
+      <p className="page-subtitle">
+        Run the audit assessment on an uploaded transaction dataset. The latest completed result automatically becomes the current result used across the platform.
+      </p>
 
-        <select
-          value={selectedDataset}
-          onChange={(event) => setSelectedDataset(event.target.value)}
+      <div className="nav-actions">
+        <button
+          className="secondary-btn"
+          onClick={() => {
+            if (
+              clientIdFromUrl
+            ) {
+              navigate(
+                `/datasets?clientId=${clientIdFromUrl}`
+              );
+
+              return;
+            }
+
+            navigate(
+              "/datasets"
+            );
+          }}
         >
-          <option value="">Select Dataset</option>
+          ← View Datasets
+        </button>
 
-          {datasets.map((dataset) => (
-            <option key={dataset.id} value={dataset.id}>
-              {dataset.dataset_name} - {dataset.clients?.client_name}
-            </option>
-          ))}
-        </select>
+        <button
+          className="secondary-btn"
+          onClick={() => {
+            const clientId =
+              selectedDatasetDetails
+                ?.client_id ||
+              clientIdFromUrl;
+
+            navigate(
+              clientId
+                ? `/rules?clientId=${clientId}`
+                : "/rules"
+            );
+          }}
+        >
+          Review Audit Checks
+        </button>
+
+        <button
+          className="primary-btn"
+          onClick={() =>
+            goToFindings()
+          }
+          disabled={
+            !selectedDataset
+          }
+        >
+          View Current Findings →
+        </button>
       </div>
 
-      <button onClick={handleRunAnalysis} disabled={loading}>
-        {loading ? "Running..." : "Run Analysis"}
-      </button>
+      <div
+        className="card"
+        style={{
+          marginTop: "24px",
+        }}
+      >
+        <h2
+          style={{
+            marginTop: 0,
+          }}
+        >
+          Select Dataset
+        </h2>
 
-      {analysisResult && (
-        <>
-          <hr />
+        {pageLoading && (
+          <p>
+            Loading datasets...
+          </p>
+        )}
 
-          <h2>Analysis Summary</h2>
+        <select
+          value={
+            selectedDataset
+          }
+          onChange={(
+            event
+          ) => {
+            setSelectedDataset(
+              event.target.value
+            );
+            setAssessmentResult(
+              null
+            );
+          }}
+        >
+          <option value="">
+            -- Select Dataset --
+          </option>
 
-          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            <Card title="Total Transactions" value={analysisResult.total_transactions} />
-            <Card title="Rule Findings" value={analysisResult.rule_findings_count} />
-            <Card title="ML Findings" value={analysisResult.ml_findings_count} />
-            <Card title="Final Findings" value={analysisResult.findings_count} />
-            <Card title="High / Critical" value={analysisResult.high_risk_count} />
+          {availableDatasets.map(
+            (dataset) => (
+              <option
+                key={dataset.id}
+                value={dataset.id}
+              >
+                {
+                  dataset.dataset_name
+                }
+                {" — "}
+                {dataset.clients
+                  ?.client_name ||
+                  "Unknown Client"}
+              </option>
+            )
+          )}
+        </select>
+
+        {selectedDatasetDetails && (
+          <div className="preview-box">
+            <strong>
+              Selected Dataset
+            </strong>
+
+            <p
+              style={{
+                marginBottom: 0,
+              }}
+            >
+              {
+                selectedDatasetDetails
+                  .dataset_name
+              }
+              {" • "}
+              {
+                selectedDatasetDetails
+                  .total_records
+              }{" "}
+              records
+              {" • "}
+              {selectedDatasetDetails
+                .clients
+                ?.client_name ||
+                "Unknown Client"}
+            </p>
+
+            <p>
+              <strong>
+                Assessment status:
+              </strong>{" "}
+              {currentAssessment
+                ? (
+                    `Latest completed assessment: ${formatDate(
+                      currentAssessment
+                        .created_at
+                    )}`
+                  )
+                : (
+                    "Not yet assessed"
+                  )}
+            </p>
+          </div>
+        )}
+
+        <button
+          className="primary-btn"
+          onClick={
+            handleAssessment
+          }
+          disabled={
+            loading ||
+            !selectedDataset
+          }
+        >
+          {loading
+            ? "Assessing Dataset..."
+            : currentAssessment
+              ? "Run Analysis Again"
+              : "Run Analysis"}
+        </button>
+      </div>
+
+      {assessmentResult && (
+        <div
+          className="card"
+          style={{
+            marginTop: "24px",
+          }}
+        >
+          <h2
+            style={{
+              marginTop: 0,
+            }}
+          >
+            Analysis Completed
+          </h2>
+
+          <div
+            className="form-grid"
+          >
+            <InfoItem
+              label="Transactions Reviewed"
+              value={
+                assessmentResult
+                  .total_transactions
+              }
+            />
+
+            <InfoItem
+              label="Findings"
+              value={
+                assessmentResult
+                  .findings_count
+              }
+            />
+
+            <InfoItem
+              label="Low"
+              value={
+                assessmentResult
+                  .low_risk_count
+              }
+            />
+
+            <InfoItem
+              label="Medium"
+              value={
+                assessmentResult
+                  .medium_risk_count
+              }
+            />
+
+            <InfoItem
+              label="High / Critical"
+              value={
+                assessmentResult
+                  .high_risk_count
+              }
+            />
           </div>
 
-          <h2 style={{ marginTop: "24px" }}>Findings Preview</h2>
+          <div
+            style={{
+              marginTop: "18px",
+              padding: "12px",
+              borderRadius: "10px",
+              background:
+                "#f8fafc",
+              color:
+                "#475569",
+            }}
+          >
+            This completed result is now the current assessment for this dataset and is automatically used by Dashboard, Findings, Reports, and the AI Copilot context.
+          </div>
 
-          {analysisResult.findings_preview.length === 0 ? (
-            <p>No findings detected.</p>
-          ) : (
-            <table border="1" cellPadding="8" style={{ width: "100%" }}>
+          <div className="nav-actions">
+            <button
+              className="primary-btn"
+              onClick={() =>
+                goToFindings(
+                  assessmentResult
+                    .analysis_id
+                )
+              }
+            >
+              Investigate Current
+              Findings
+            </button>
+
+            <button
+              className="secondary-btn"
+              onClick={() =>
+                navigate(
+                  "/reports"
+                )
+              }
+            >
+              Generate Report
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div
+        className="card"
+        style={{
+          marginTop: "24px",
+        }}
+      >
+        <h2
+          style={{
+            marginTop: 0,
+          }}
+        >
+          Current Dataset
+          Assessments
+        </h2>
+
+        <p className="page-subtitle">
+          The most recent completed result is shown for each dataset and is used across the platform.
+        </p>
+
+        {currentAssessments.length ===
+        0 ? (
+          <p>
+            No completed
+            assessments yet.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
               <thead>
                 <tr>
-                  <th>Transaction ID</th>
-                  <th>Rule Score</th>
-                  <th>ML Score</th>
-                  <th>Network Score</th>
-                  <th>Final Score</th>
-                  <th>Risk Level</th>
-                  <th>Sources</th>
-                  <th>Triggered Rules</th>
-                  <th>Anomaly Reasons</th>
+                  <th>
+                    Dataset
+                  </th>
+                  <th>
+                    Client
+                  </th>
+                  <th>
+                    Reviewed
+                  </th>
+                  <th>
+                    Assessed On
+                  </th>
+                  <th>
+                    Action
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {analysisResult.findings_preview.map((finding, index) => (
-                  <tr key={index}>
-                    <td>{finding.transaction_id}</td>
-                    <td>{finding.rule_score}</td>
-                    <td>{finding.anomaly_score}</td>
-                    <td>{finding.network_score}</td>
-                    <td>{finding.risk_score}</td>
-                    <td>
-                      <span style={getRiskBadgeStyle(finding.risk_level)}>
-                        {finding.risk_level}
-                      </span>
-                    </td>
-                    <td>{finding.detection_sources?.join(", ")}</td>
-                    <td>{finding.triggered_rules?.join(", ") || "-"}</td>
-                    <td>
-                      {finding.anomaly_reasons?.length > 0 ? (
-                        <ul>
-                          {finding.anomaly_reasons.map((reason, i) => (
-                            <li key={i}>{reason}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {currentAssessments.map(
+                  (item) => (
+                    <tr
+                      key={
+                        item.id
+                      }
+                    >
+                      <td>
+                        {item.datasets
+                          ?.dataset_name ||
+                          item.dataset_id}
+                      </td>
+
+                      <td>
+                        {item.datasets
+                          ?.clients
+                          ?.client_name ||
+                          "-"}
+                      </td>
+
+                      <td>
+                        {Number(
+                          item.total_transactions ||
+                            0
+                        ).toLocaleString(
+                          "en-IN"
+                        )}
+                      </td>
+
+                      <td>
+                        {formatDate(
+                          item.created_at
+                        )}
+                      </td>
+
+                      <td>
+                        <button
+                          className="secondary-btn"
+                          onClick={() =>
+                            navigate(
+                              `/investigation?clientId=${item.client_id}` +
+                                `&datasetId=${item.dataset_id}` +
+                                `&analysisId=${item.id}`
+                            )
+                          }
+                        >
+                          Open Findings
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function Card({ title, value }) {
+
+function InfoItem({
+  label,
+  value,
+}) {
   return (
-    <div style={cardStyle}>
-      <p>{title}</p>
-      <h2>{value ?? 0}</h2>
+    <div className="info-item">
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value ?? 0}
+      </strong>
     </div>
   );
 }
 
-function getRiskBadgeStyle(riskLevel) {
-  if (riskLevel === "Critical") {
-    return badge("#FEE2E2", "#B91C1C");
+
+function formatDate(
+  value
+) {
+  if (!value) {
+    return "-";
   }
 
-  if (riskLevel === "High") {
-    return badge("#FED7AA", "#C2410C");
-  }
-
-  if (riskLevel === "Medium") {
-    return badge("#FEF3C7", "#B45309");
-  }
-
-  return badge("#DCFCE7", "#15803D");
+  return new Date(
+    value
+  ).toLocaleString();
 }
-
-function badge(background, color) {
-  return {
-    background,
-    color,
-    padding: "4px 10px",
-    borderRadius: "999px",
-    fontWeight: "600",
-  };
-}
-
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #E5E7EB",
-  borderRadius: "16px",
-  padding: "16px",
-  minWidth: "180px",
-};

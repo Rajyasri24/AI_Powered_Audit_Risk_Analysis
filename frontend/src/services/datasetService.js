@@ -19,3 +19,61 @@ export const getDatasets = async () => {
   const response = await api.get("/datasets/");
   return response.data;
 };
+
+export const getDatasetById = async (datasetId) => {
+  const response = await api.get(`/datasets/${datasetId}`);
+  return response.data;
+};
+
+export const deleteDataset = async (datasetId) => {
+  const response = await api.delete(`/datasets/${datasetId}`);
+  return response.data;
+};
+
+export const cleanupOldDatasets = async (days = 30) => {
+  const response = await api.delete(`/datasets/cleanup-old/${days}`);
+  return response.data;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

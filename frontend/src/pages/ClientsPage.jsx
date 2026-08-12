@@ -7,10 +7,13 @@ import {
   getClients,
 } from "../services/clientService";
 
+import { getDatasets } from "../services/datasetService";
+
 export default function ClientsPage() {
   const navigate = useNavigate();
 
   const [clients, setClients] = useState([]);
+  const [datasets, setDatasets] = useState([]);
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -25,20 +28,33 @@ export default function ClientsPage() {
   });
 
   useEffect(() => {
-    loadClients();
+    loadData();
   }, []);
 
-  const loadClients = async () => {
+  const loadData = async () => {
+  try {
+    setLoading(true);
+
+    const clientData = await getClients();
+    setClients(Array.isArray(clientData) ? clientData : []);
+
     try {
-      setLoading(true);
-      const data = await getClients();
-      setClients(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to load clients.");
-    } finally {
-      setLoading(false);
+      const datasetData = await getDatasets();
+      setDatasets(Array.isArray(datasetData) ? datasetData : []);
+    } catch (datasetError) {
+      console.error("Dataset count loading failed:", datasetError);
+      setDatasets([]);
     }
+  } catch (error) {
+    console.error(error);
+    alert("Failed to load clients.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const getClientDatasetCount = (clientId) => {
+    return datasets.filter((dataset) => dataset.client_id === clientId).length;
   };
 
   const filteredClients = useMemo(() => {
@@ -47,29 +63,22 @@ export default function ClientsPage() {
         client.client_code || ""
       } ${client.industry || ""}`.toLowerCase();
 
-      const matchesSearch = searchText.includes(search.toLowerCase());
-
-      const matchesRisk =
-        riskFilter === "All" || client.risk_profile === riskFilter;
-
-      const matchesStatus =
-        statusFilter === "All" || client.client_status === statusFilter;
-
-      return matchesSearch && matchesRisk && matchesStatus;
+      return (
+        searchText.includes(search.toLowerCase()) &&
+        (riskFilter === "All" || client.risk_profile === riskFilter) &&
+        (statusFilter === "All" || client.client_status === statusFilter)
+      );
     });
   }, [clients, search, riskFilter, statusFilter]);
 
   const stats = useMemo(() => {
     return {
       total: clients.length,
-      active: clients.filter((client) => client.client_status === "Active")
-        .length,
-      highRisk: clients.filter((client) => client.risk_profile === "High")
-        .length,
-      inactive: clients.filter((client) => client.client_status === "Inactive")
-        .length,
+      active: clients.filter((client) => client.client_status === "Active").length,
+      highRisk: clients.filter((client) => client.risk_profile === "High").length,
+      datasets: datasets.length,
     };
-  }, [clients]);
+  }, [clients, datasets]);
 
   const handleCreateClient = async () => {
     if (!form.client_name.trim()) {
@@ -105,7 +114,7 @@ export default function ClientsPage() {
         client_status: "Active",
       });
 
-      loadClients();
+      loadData();
     } catch (error) {
       console.error(error);
       alert(error?.response?.data?.detail || "Failed to create client.");
@@ -114,7 +123,7 @@ export default function ClientsPage() {
 
   const handleDeleteClient = async (clientId) => {
     const confirmDelete = window.confirm(
-      "Are you sure? This will delete the client and related datasets, rules, analyses, and findings."
+      "Are you sure? This will delete the client and related datasets/rules."
     );
 
     if (!confirmDelete) return;
@@ -122,7 +131,7 @@ export default function ClientsPage() {
     try {
       await deleteClient(clientId);
       alert("Client deleted.");
-      loadClients();
+      loadData();
     } catch (error) {
       console.error(error);
       alert("Failed to delete client.");
@@ -133,123 +142,75 @@ export default function ClientsPage() {
     <div>
       <h1 className="page-title">Client Management</h1>
       <p className="page-subtitle">
-        Create and manage audit clients. Each new client automatically receives
-        default audit rules.
+        Create and manage audit clients. Each client can have multiple datasets,
+        rules, analyses, and findings.
       </p>
-
-      <div className="nav-actions">
-        <button className="primary-btn" onClick={() => navigate("/rules")}>
-          Manage Rules
-        </button>
-        <button className="secondary-btn" onClick={() => navigate("/upload")}>
-          Upload Dataset
-        </button>
-        <button className="secondary-btn" onClick={() => navigate("/analysis")}>
-          Run Analysis
-        </button>
-      </div>
 
       <div style={statsGridStyle}>
         <StatCard title="Total Clients" value={stats.total} />
         <StatCard title="Active Clients" value={stats.active} />
         <StatCard title="High Risk Clients" value={stats.highRisk} />
-        <StatCard title="Inactive Clients" value={stats.inactive} />
+        <StatCard title="Uploaded Datasets" value={stats.datasets} />
       </div>
 
       <div className="card" style={{ marginTop: "24px" }}>
         <h2 style={{ marginTop: 0 }}>Add Client</h2>
 
         <div className="form-grid">
-          <div>
-            <label>Client Name *</label>
-            <input
-              placeholder="Example: ABC Manufacturing Ltd"
-              value={form.client_name}
-              onChange={(e) =>
-                setForm({ ...form, client_name: e.target.value })
-              }
-            />
-            <small>Legal or business name of the audit client.</small>
-          </div>
+          <input
+            placeholder="Client Name *"
+            value={form.client_name}
+            onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+          />
 
-          <div>
-            <label>Client Code *</label>
-            <input
-              placeholder="Example: ABC001"
-              value={form.client_code}
-              onChange={(e) =>
-                setForm({ ...form, client_code: e.target.value })
-              }
-            />
-            <small>Unique short code for identifying the client.</small>
-          </div>
+          <input
+            placeholder="Client Code *"
+            value={form.client_code}
+            onChange={(e) => setForm({ ...form, client_code: e.target.value })}
+          />
 
-          <div>
-            <label>Industry</label>
-            <select
-              value={form.industry}
-              onChange={(e) => setForm({ ...form, industry: e.target.value })}
-            >
-              <option value="Manufacturing">Manufacturing</option>
-              <option value="Banking">Banking</option>
-              <option value="Insurance">Insurance</option>
-              <option value="Retail">Retail</option>
-              <option value="Healthcare">Healthcare</option>
-              <option value="Education">Education</option>
-              <option value="Government">Government</option>
-              <option value="Technology">Technology</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
+          <select
+            value={form.industry}
+            onChange={(e) => setForm({ ...form, industry: e.target.value })}
+          >
+            <option value="Manufacturing">Manufacturing</option>
+            <option value="Banking">Banking</option>
+            <option value="Insurance">Insurance</option>
+            <option value="Retail">Retail</option>
+            <option value="Healthcare">Healthcare</option>
+            <option value="Technology">Technology</option>
+            <option value="Other">Other</option>
+          </select>
 
-          <div>
-            <label>Risk Profile</label>
-            <select
-              value={form.risk_profile}
-              onChange={(e) =>
-                setForm({ ...form, risk_profile: e.target.value })
-              }
-            >
-              <option value="Low">Low Risk</option>
-              <option value="Medium">Medium Risk</option>
-              <option value="High">High Risk</option>
-            </select>
-          </div>
+          <select
+            value={form.risk_profile}
+            onChange={(e) => setForm({ ...form, risk_profile: e.target.value })}
+          >
+            <option value="Low">Low Risk</option>
+            <option value="Medium">Medium Risk</option>
+            <option value="High">High Risk</option>
+          </select>
 
-          <div>
-            <label>Status</label>
-            <select
-              value={form.client_status}
-              onChange={(e) =>
-                setForm({ ...form, client_status: e.target.value })
-              }
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
+          <select
+            value={form.client_status}
+            onChange={(e) => setForm({ ...form, client_status: e.target.value })}
+          >
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
 
-          <div style={{ display: "flex", alignItems: "end" }}>
-            <button className="primary-btn" onClick={handleCreateClient}>
-              Create Client
-            </button>
-          </div>
+          <button className="primary-btn" onClick={handleCreateClient}>
+            Create Client
+          </button>
         </div>
       </div>
 
       <div className="card" style={{ marginTop: "24px" }}>
-        <div style={sectionHeaderStyle}>
-          <div>
-            <h2 style={{ margin: 0 }}>Clients</h2>
-            <p style={{ color: "#6B7280", margin: "6px 0 0" }}>
-              Search, filter, and continue the audit workflow for each client.
-            </p>
-          </div>
-        </div>
+        <h2 style={{ marginTop: 0 }}>Clients</h2>
 
-        <div className="form-grid" style={{ marginTop: "18px" }}>
+        <div className="form-grid">
           <input
-            placeholder="Search by client name, code, or industry..."
+            placeholder="Search client..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -259,9 +220,9 @@ export default function ClientsPage() {
             onChange={(e) => setRiskFilter(e.target.value)}
           >
             <option value="All">All Risk Profiles</option>
-            <option value="Low">Low Risk</option>
-            <option value="Medium">Medium Risk</option>
-            <option value="High">High Risk</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
           </select>
 
           <select
@@ -277,25 +238,100 @@ export default function ClientsPage() {
         {loading && <p>Loading clients...</p>}
 
         {!loading && filteredClients.length === 0 && (
-          <p style={{ color: "#6B7280" }}>No clients match the current filters.</p>
+          <p style={{ color: "#6B7280" }}>No clients found.</p>
         )}
 
-        {!loading && filteredClients.length > 0 && (
-          <div style={clientGridStyle}>
-            {filteredClients.map((client) => (
-              <ClientCard
-                key={client.id}
-                client={client}
-                onManageRules={() => navigate(`/rules?clientId=${client.id}`)}
-                onUpload={() => navigate("/upload")}
-                onAnalysis={() => navigate("/analysis")}
-                onFindings={() => navigate("/investigation")}
-                onReports={() => navigate("/reports")}
-                onDelete={() => handleDeleteClient(client.id)}
-              />
-            ))}
-          </div>
-        )}
+        <div style={clientGridStyle}>
+          {filteredClients.map((client) => (
+            <div className="card" key={client.id}>
+              <div style={clientHeaderStyle}>
+                <div>
+                  <h3 style={{ margin: 0 }}>{client.client_name}</h3>
+                  <p style={{ color: "#6B7280", margin: "6px 0 0" }}>
+                    {client.client_code || "NO-CODE"}
+                  </p>
+                </div>
+
+                <span className={getRiskBadgeClass(client.risk_profile)}>
+                  {client.risk_profile || "Medium"}
+                </span>
+              </div>
+
+              <div style={clientMetaStyle}>
+                <p>
+                  <strong>Industry:</strong> {client.industry || "-"}
+                </p>
+
+                <p>
+                  <strong>Status:</strong>{" "}
+                  <span
+                    className={
+                      client.client_status === "Inactive"
+                        ? "badge badge-critical"
+                        : "badge badge-low"
+                    }
+                  >
+                    {client.client_status || "Active"}
+                  </span>
+                </p>
+
+                <p>
+                  <strong>Datasets Uploaded:</strong>{" "}
+                  {getClientDatasetCount(client.id)}
+                </p>
+
+                <p>
+                  <strong>Workflow:</strong> Rules → Datasets → Analysis →
+                  Findings
+                </p>
+              </div>
+
+              <div style={actionGridStyle}>
+                <button
+                  className="primary-btn"
+                  onClick={() => navigate(`/rules?clientId=${client.id}`)}
+                >
+                  Manage Rules
+                </button>
+
+                <button
+                  className="secondary-btn"
+                  onClick={() => navigate(`/datasets?clientId=${client.id}`)}
+                >
+                  Manage Datasets
+                </button>
+
+                <button
+                  className="secondary-btn"
+                  onClick={() => navigate(`/upload?clientId=${client.id}`)}
+                >
+                  Upload Dataset
+                </button>
+
+                <button
+                  className="secondary-btn"
+                  onClick={() => navigate(`/analysis?clientId=${client.id}`)}
+                >
+                  Run Analysis
+                </button>
+
+                <button
+                  className="secondary-btn"
+                  onClick={() => navigate(`/investigation?clientId=${client.id}`)}
+                >
+                  View Findings
+                </button>
+
+                <button
+                  className="danger-btn"
+                  onClick={() => handleDeleteClient(client.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -306,78 +342,6 @@ function StatCard({ title, value }) {
     <div className="card">
       <p style={{ color: "#6B7280", margin: 0 }}>{title}</p>
       <h2 style={{ margin: "8px 0 0", fontSize: "30px" }}>{value}</h2>
-    </div>
-  );
-}
-
-function ClientCard({
-  client,
-  onManageRules,
-  onUpload,
-  onAnalysis,
-  onFindings,
-  onReports,
-  onDelete,
-}) {
-  return (
-    <div className="card">
-      <div style={clientCardTopStyle}>
-        <div>
-          <h3 style={{ margin: 0 }}>{client.client_name}</h3>
-          <p style={{ color: "#6B7280", margin: "6px 0 0" }}>
-            {client.client_code || "NO-CODE"}
-          </p>
-        </div>
-
-        <span className={getRiskBadgeClass(client.risk_profile)}>
-          {client.risk_profile || "Medium"}
-        </span>
-      </div>
-
-      <div style={clientMetaStyle}>
-        <p>
-          <strong>Industry:</strong> {client.industry || "-"}
-        </p>
-        <p>
-          <strong>Status:</strong>{" "}
-          <span
-            className={
-              client.client_status === "Inactive"
-                ? "badge badge-critical"
-                : "badge badge-low"
-            }
-          >
-            {client.client_status || "Active"}
-          </span>
-        </p>
-        <p>
-          <strong>Default Rules:</strong> Applied on creation
-        </p>
-        <p>
-          <strong>Workflow:</strong> Rules → Upload → Analysis → Findings
-        </p>
-      </div>
-
-      <div style={actionGridStyle}>
-        <button className="primary-btn" onClick={onManageRules}>
-          Manage Rules
-        </button>
-        <button className="secondary-btn" onClick={onUpload}>
-          Upload Dataset
-        </button>
-        <button className="secondary-btn" onClick={onAnalysis}>
-          Run Analysis
-        </button>
-        <button className="secondary-btn" onClick={onFindings}>
-          View Findings
-        </button>
-        <button className="secondary-btn" onClick={onReports}>
-          Reports
-        </button>
-        <button className="danger-btn" onClick={onDelete}>
-          Delete
-        </button>
-      </div>
     </div>
   );
 }
@@ -394,21 +358,14 @@ const statsGridStyle = {
   gap: "16px",
 };
 
-const sectionHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "16px",
-  alignItems: "center",
-};
-
 const clientGridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
   gap: "18px",
   marginTop: "22px",
 };
 
-const clientCardTopStyle = {
+const clientHeaderStyle = {
   display: "flex",
   justifyContent: "space-between",
   gap: "12px",

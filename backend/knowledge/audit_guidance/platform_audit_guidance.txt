@@ -1,0 +1,31 @@
+AUDITRISK AI - PLATFORM AUDIT GUIDANCE
+
+Purpose
+This knowledge is internal guidance for technology-assisted audit review. It is not a statutory audit opinion, legal advice, or evidence that a transaction is fraudulent.
+
+Risk-based transaction review
+A flagged transaction should be treated as an item requiring professional review rather than as proof of fraud. The auditor should inspect the underlying transaction, supporting documents, approvals, counterparties, timing, value and business purpose before reaching a conclusion.
+
+High-value or unusual transactions
+When a transaction value is unusually high compared with the normal population, verify the invoice, purchase order or contract, approval authority, payment evidence, receiving evidence where relevant, and whether the amount is consistent with the stated business purpose.
+
+Repeated or unusual transaction behaviour
+When a transaction differs from surrounding or comparable transactions, review whether the difference has a legitimate operational explanation. Consider value, timing, frequency, transaction type, counterparty and any changes in the normal pattern.
+
+Vendor and relationship indicators
+Shared bank accounts, tax identifiers, addresses, contact details or other identifiers across vendors may indicate duplicate master data, related entities, data-quality issues or a potential conflict. The indicator alone does not establish misconduct. Verify the vendor master, onboarding documents, beneficial ownership where available, bank confirmation and related-party declarations.
+
+Triggered audit checks
+A triggered audit rule represents a configured audit condition that matched the transaction. The auditor should understand the control objective behind the rule and verify evidence relevant to that condition. Multiple independent observations affecting one transaction may justify higher review priority.
+
+Audit evidence
+Evidence should be sufficient and relevant to support the auditor's conclusion. Typical evidence may include invoices, contracts, purchase orders, approvals, goods-received records, bank statements, vendor master records, correspondence, system logs and management explanations.
+
+Management-facing communication
+Management summaries should focus on significant observations, affected transaction populations, business impact, recommended corrective action and areas requiring management response. Technical implementation details should normally remain in supporting working papers.
+
+Corrective actions
+Recommendations should address the cause of an observation where possible. Examples include additional approval checks, vendor-master cleanup, duplicate-detection controls, threshold review, segregation-of-duties review, documentation requirements, periodic exception review and follow-up testing.
+
+Professional judgement
+Automated risk scores prioritise review; they do not replace auditor judgement. Findings should be validated against source evidence and management explanations before being reported as confirmed audit observations.

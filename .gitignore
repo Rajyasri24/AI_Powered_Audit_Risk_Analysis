@@ -1,7 +1,3 @@
-# =========================
-# Python
-# =========================
-
 backend/venv/
 venv/
 
@@ -10,18 +6,10 @@ __pycache__/
 *.pyo
 *.pyd
 
-# =========================
-# Node / React
-# =========================
-
 frontend/node_modules/
 node_modules/
 
 dist/
-
-# =========================
-# Environment Variables
-# =========================
 
 .env
 backend/.env
@@ -62,3 +50,7 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/sample/.gitkeep
+backend/chroma_db/
+backend/evaluation_data/
+backend/uploads/
+frontend/src/index_b.txt
