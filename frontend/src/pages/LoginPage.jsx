@@ -210,7 +210,7 @@ export default function LoginPage() {
     // Full name: required, maximum 8 characters
     if (
       normalizedName.length < 1
-      || normalizedName.length > 8
+      || normalizedName.length > 20
     ) {
       setMessage(
         "Full name must contain a maximum of 8 characters."
