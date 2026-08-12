@@ -207,24 +207,18 @@ export default function LoginPage() {
         .trim()
         .toLowerCase();
 
-    // Full name: required, maximum 8 characters
-    if (
-      normalizedName.length < 1
-      || normalizedName.length > 20
-    ) {
+    if (!normalizedName) {
       setMessage(
-        "Full name must contain a maximum of 8 characters."
+        "Please enter your full name."
       );
       return;
     }
 
     if (
-      !/^[A-Za-z][A-Za-z .'-]*$/.test(
-        normalizedName
-      )
+      normalizedName.length > 20
     ) {
       setMessage(
-        "Full name contains unsupported characters."
+        "Full name must not exceed 20 characters."
       );
       return;
     }
@@ -356,10 +350,9 @@ export default function LoginPage() {
 
       /*
         The matching profiles row is created by the
-        Supabase Auth trigger.
+        one-time Supabase Auth trigger.
 
-        The database trigger is responsible for
-        preventing public Admin registration.
+        That trigger also prevents public Admin registration.
       */
 
       if (
@@ -484,7 +477,7 @@ export default function LoginPage() {
                 style={inputStyle}
                 placeholder="Full name"
                 value={fullName}
-                maxLength={8}
+                maxLength={20}
                 autoComplete="name"
                 onChange={(
                   event
@@ -494,10 +487,6 @@ export default function LoginPage() {
                   )
                 }
               />
-
-              <p style={nameHelperStyle}>
-                Maximum 8 characters.
-              </p>
 
               <label style={labelStyle}>
                 Role
@@ -802,13 +791,6 @@ const inputStyle = {
   marginBottom: "14px",
   borderRadius: "12px",
   border: "1px solid #E5E7EB",
-};
-
-const nameHelperStyle = {
-  marginTop: "-8px",
-  marginBottom: "14px",
-  color: "#9CA3AF",
-  fontSize: "11px",
 };
 
 const passwordWrapStyle = {
