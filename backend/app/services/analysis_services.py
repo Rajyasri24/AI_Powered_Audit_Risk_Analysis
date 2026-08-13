@@ -7,6 +7,7 @@ import pandas as pd
 from fastapi import HTTPException
 
 from app.core.supabase_client import supabase
+from app.services.dataset_storage_service import DatasetStorageService
 from app.services.ml_service import MLService
 from app.services.network_service import NetworkService
 from app.services.rule_engine_service import RuleEngineService
@@ -85,69 +86,13 @@ class AnalysisService:
         file_path: str,
         file_type: str,
     ) -> pd.DataFrame:
-        path = Path(file_path)
-
-        if not path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    "Uploaded dataset file "
-                    "was not found."
-                ),
-            )
-
-        normalized_file_type = (
-            file_type.strip().lower()
-        )
-
-        if normalized_file_type == "csv":
-            return read_csv_safely(path)
-
-        if normalized_file_type == "xlsx":
-            return pd.read_excel(path)
-
-        if normalized_file_type == "json":
-            with open(
-                path,
-                "r",
-                encoding="utf-8-sig",
-            ) as file:
-                data = json.load(file)
-
-            if isinstance(data, dict):
-                if isinstance(
-                    data.get("data"),
-                    list,
-                ):
-                    data = data["data"]
-
-                elif isinstance(
-                    data.get("transactions"),
-                    list,
-                ):
-                    data = data[
-                        "transactions"
-                    ]
-
-                else:
-                    data = [data]
-
-            if not isinstance(data, list):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "JSON dataset must "
-                        "contain a list of records."
-                    ),
-                )
-
-            return pd.DataFrame(data)
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Unsupported dataset type."
-            ),
+        """
+        Read from persistent Supabase Storage for new uploads while remaining
+        backward compatible with legacy local file_path records.
+        """
+        return DatasetStorageService.read_dataframe(
+            storage_reference=file_path,
+            file_type=file_type,
         )
 
     @staticmethod
