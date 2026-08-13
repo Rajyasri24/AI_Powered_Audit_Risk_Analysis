@@ -1,6 +1,6 @@
 # AI-Powered Audit Risk Analysis Platform
 
-**Live Demo : ai-powered-audit-risk-analysis.vercel.app**
+**Live Demo : (ai-powered-audit-risk-analysis.vercel.app)**
 
 An end-to-end audit analytics and risk assessment platform that combines **rule-based audit checks, machine learning anomaly detection, vendor network analytics, automated reporting, and an AI Audit Copilot using Retrieval-Augmented Generation (RAG)**.
 
